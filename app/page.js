@@ -2,7 +2,7 @@
 
 // This is the fully merged Ultimate Fashion Generator combining everything: all prior options plus all 90s magazine enhancements.
 // Categories follow a logical creative flow...
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Upload } from "lucide-react";
 
 
@@ -152,6 +152,41 @@ export default function UltimateFashionGeneratorExpanded() {
     }
   };
 
+  // --- Progress Bar Element (smooth animated version) ---
+  const ProgressBar = ({ loading }) => {
+    const [progress, setProgress] = useState(0);
+
+    useEffect(() => {
+      let interval;
+      if (loading) {
+        setProgress(0);
+        interval = setInterval(() => {
+          setProgress((prev) => {
+            // Gradually increase progress to simulate work
+            if (prev < 90) return prev + Math.random() * 10; // stop near 90% until done
+            return prev;
+          });
+        }, 300);
+      } else {
+        // Complete and fade out
+        setProgress(100);
+        const timeout = setTimeout(() => setProgress(0), 700);
+        return () => clearTimeout(timeout);
+      }
+      return () => clearInterval(interval);
+    }, [loading]);
+
+    return (
+      <div
+        className={`fixed top-0 left-0 h-[3px] bg-indigo-600 transition-all duration-300 ease-out ${
+          progress > 0 ? "opacity-100" : "opacity-0"
+        }`}
+        style={{ width: `${progress}%`, zIndex: 50 }}
+      ></div>
+    );
+  };
+
+
   const renderCategory = (label, values, key) => (
     <div key={key} className="mb-6">
       <h2 className="text-lg font-medium mb-2 capitalize">{label}</h2>
@@ -171,6 +206,7 @@ export default function UltimateFashionGeneratorExpanded() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-50 to-white dark:from-zinc-950 dark:to-zinc-900 text-zinc-900 dark:text-zinc-50 p-6">
+      <ProgressBar loading={loading} />
       <h1 className="text-2xl font-semibold mb-4">Ultimate Fashion Generator (Full 90s Editorial Edition)</h1>
       {Object.entries(DATA).map(([k, v]) =>
         typeof v === "object" && !Array.isArray(v) ? (
