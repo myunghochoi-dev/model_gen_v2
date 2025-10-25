@@ -92,21 +92,33 @@ The resulting image must maintain visible optical imperfections and realistic ph
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
+        "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify(reqBody),
     });
 
     const data = await res.json();
-    const imageUrl = data.data?.[0]?.url;
-    if (!imageUrl) {
+    const entry = data.data?.[0] || {};
+    const imageUrl = entry.url;
+    const b64 = entry.b64_json || entry.b64json || entry.b64;
+
+    if (!imageUrl && !b64) {
       console.error("OpenAI response:", data);
-      return NextResponse.json({ error: "No image returned", details: data }, { status: 500 });
+      const details = process.env.DEBUG_IMAGE === "true" ? data : undefined;
+      return NextResponse.json({ error: "No image returned", details }, { status: 500 });
     }
 
     /* -------- Automatic realism noise layer -------- */
-    const imgRes = await fetch(imageUrl);
-    const buffer = Buffer.from(await imgRes.arrayBuffer());
+    let buffer;
+    if (imageUrl) {
+      const imgRes = await fetch(imageUrl);
+      if (!imgRes.ok) throw new Error(`Failed fetching generated image URL: ${imgRes.status}`);
+      buffer = Buffer.from(await imgRes.arrayBuffer());
+    } else {
+      // provider returned base64 directly
+      buffer = Buffer.from(b64, "base64");
+    }
 
     // Get image dimensions to generate a matching noise overlay
     const imgSharp = sharp(buffer);
