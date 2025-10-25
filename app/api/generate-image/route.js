@@ -167,9 +167,25 @@ ${visualGuidance}
       const imageBase64 = `data:image/png;base64,${outBase64}`;
       return NextResponse.json({ imageBase64 });
     } catch (err) {
-      console.error("Image post-processing failed:", err);
+      // Log full error for server-side debugging
+      console.error("Image post-processing failed:", err?.message || err, err?.stack || "no-stack");
+
+      // If original base64 is available, return it as a fallback so the client
+      // can still display the generated image even if post-processing failed.
+      if (b64) {
+        try {
+          const originalBase64 = `data:image/png;base64,${b64}`;
+          return NextResponse.json({ imageBase64: originalBase64 });
+        } catch (e) {
+          console.error("Failed to return original base64 fallback:", e);
+        }
+      }
+
+      // If a remote URL exists, return it as a fallback.
       if (imageUrl) return NextResponse.json({ imageUrl });
-      return NextResponse.json({ error: "Image processing failed" }, { status: 500 });
+
+      // Otherwise return the error detail to aid debugging.
+      return NextResponse.json({ error: "Image processing failed", message: err?.message || String(err) }, { status: 500 });
     }
   } catch (err) {
     console.error("Image generation error:", err);
