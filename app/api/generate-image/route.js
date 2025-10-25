@@ -38,16 +38,23 @@ Models must appear attractive, confident, and professional—styled as if for hi
     }
 
     // --- Handle Aspect Ratio selection ---
+    // OpenAI Images API accepts only a limited set of sizes:
+    // '1024x1024', '1024x1536', '1536x1024', and 'auto'.
+    // Map requested aspect ratios to the closest supported value.
     let size = "1024x1024";
     switch (payload.aspectRatio) {
       case "3:4 (Portrait)":
-        size = "1024x1365";
+        // Use the portrait size supported by the API
+        size = "1024x1536";
         break;
       case "9:16 (Vertical)":
-        size = "1024x1820";
+        // 9:16 is not directly supported; use 'auto' to let the provider
+        // choose an appropriate tall output, or you can use 1024x1536 as a fallback.
+        size = "auto";
         break;
       case "16:9 (Landscape)":
-        size = "1365x768";
+        // Use the landscape size supported by the API
+        size = "1536x1024";
         break;
       default:
         size = "1024x1024";
