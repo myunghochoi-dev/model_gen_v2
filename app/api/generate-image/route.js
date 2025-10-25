@@ -47,16 +47,19 @@ Maintain authentic human detail, natural lighting, emotional gaze, and organic i
       visualGuidance = "Adopt silhouette, texture, and tone from the Wardrobe Reference image.";
 
     /* ---------------- aspect ratio → size mapping ---------------- */
+    // OpenAI Images API accepts: '1024x1024', '1024x1536', '1536x1024', and 'auto'.
+    // Choose the closest supported generation size, then we'll post-process
+    // to exact pixel dimensions below.
     let size = "1024x1024";
     switch (payload.aspectRatio) {
       case "3:4 (Portrait)":
-        size = "1024x1365";
+        size = "1024x1536";
         break;
       case "9:16 (Vertical)":
-        size = "1024x1820";
+        size = "auto";
         break;
       case "16:9 (Landscape)":
-        size = "1365x768";
+        size = "1536x1024";
         break;
       default:
         size = "1024x1024";
@@ -91,40 +94,83 @@ ${visualGuidance}
     });
 
     const data = await res.json();
-    const imageUrl = data.data?.[0]?.url;
-    if (!imageUrl) {
-      console.error("OpenAI API error:", data);
+
+    // Surface provider errors
+    if (!res.ok) {
+      const message = data?.error?.message || JSON.stringify(data);
+      console.error("OpenAI images API error:", message);
+      return NextResponse.json({ error: message }, { status: res.status || 502 });
+    }
+
+    const entry = data.data?.[0] || {};
+    const imageUrl = entry.url;
+    const b64 = entry.b64_json || entry.b64json || entry.b64;
+
+    // target pixel sizes for exact aspect ratio outputs (post-process)
+    const aspect = payload.aspectRatio || "1:1 (Square)";
+    const targetMap = {
+      "1:1 (Square)": { width: 1024, height: 1024 },
+      "3:4 (Portrait)": { width: 1024, height: 1365 },
+      "9:16 (Vertical)": { width: 1024, height: 1820 },
+      "16:9 (Landscape)": { width: 1536, height: 864 },
+    };
+    const target = targetMap[aspect] || { width: 1024, height: 1024 };
+
+    // helper to fetch a remote image into a buffer
+    const fetchToBuffer = async (url) => {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`Failed fetching image: ${r.status}`);
+      return Buffer.from(await r.arrayBuffer());
+    };
+
+    let inputBuffer;
+    if (imageUrl) {
+      try {
+        inputBuffer = await fetchToBuffer(imageUrl);
+      } catch (err) {
+        console.error("Failed to fetch generated image URL:", err);
+        return NextResponse.json({ error: "Failed to fetch generated image" }, { status: 502 });
+      }
+    } else if (b64) {
+      inputBuffer = Buffer.from(b64, "base64");
+    } else {
+      console.error("OpenAI response missing image:", data);
       return NextResponse.json({ error: "No image returned", details: data }, { status: 500 });
     }
 
-    /* ---------------- add automatic realism noise layer ---------------- */
-    const imgRes = await fetch(imageUrl);
-    const buffer = Buffer.from(await imgRes.arrayBuffer());
+    try {
+      // Resize/crop to exact target dimensions, then add subtle realism overlay
+      const base = sharp(inputBuffer).resize(target.width, target.height, { fit: "cover", position: "centre" }).png();
 
-    // add light grain overlay & micro tonal randomness
-    const noiseBuffer = await sharp(buffer)
-      .jpeg({ quality: 96 })
-      .modulate({ brightness: 1.02, saturation: 1.01 })
-      .composite([
-        {
-          input: {
-            create: {
-              width: 1024,
-              height: 1024,
-              channels: 1,
-              noise: { type: "gaussian", mean: 128, sigma: 6 },
-            },
-          },
-          blend: "overlay",
-          opacity: 0.15,
+      // Create a lightweight noise overlay and composite it
+      const noise = {
+        create: {
+          width: target.width,
+          height: target.height,
+          channels: 1,
+          background: { r: 128, g: 128, b: 128 },
         },
-      ])
-      .toBuffer();
+      };
 
-    const noiseBase64 = noiseBuffer.toString("base64");
-    const realismURL = `data:image/jpeg;base64,${noiseBase64}`;
+      const processed = await base
+        .composite([
+          {
+            input: noise,
+            blend: "overlay",
+            opacity: 0.08,
+          },
+        ])
+        .png()
+        .toBuffer();
 
-    return NextResponse.json({ imageUrl: realismURL });
+      const outBase64 = processed.toString("base64");
+      const imageBase64 = `data:image/png;base64,${outBase64}`;
+      return NextResponse.json({ imageBase64 });
+    } catch (err) {
+      console.error("Image post-processing failed:", err);
+      if (imageUrl) return NextResponse.json({ imageUrl });
+      return NextResponse.json({ error: "Image processing failed" }, { status: 500 });
+    }
   } catch (err) {
     console.error("Image generation error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
