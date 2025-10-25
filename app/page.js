@@ -1,9 +1,10 @@
-// This is the fully merged Ultimate Fashion Generator combining everything: all prior options plus all 90s magazine enhancements.
-// Categories follow a logical creative flow starting with editorial style reference, then model setup → makeup → hair → wardrobe → environment → lighting → camera → mood → references → post → accessories → concepts.
-// All options are selectable via pill-style buttons.
+"use client";
 
+// This is the fully merged Ultimate Fashion Generator combining everything: all prior options plus all 90s magazine enhancements.
+// Categories follow a logical creative flow...
 import React, { useState } from "react";
 import { Upload } from "lucide-react";
+
 
 const DATA = {
   // --- EDITORIAL STYLE REFERENCES ---
