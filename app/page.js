@@ -207,7 +207,7 @@ export default function UltimateFashionGeneratorExpanded() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-50 to-white dark:from-zinc-950 dark:to-zinc-900 text-zinc-900 dark:text-zinc-50 p-6">
       <ProgressBar loading={loading} />
-      <h1 className="text-2xl font-semibold mb-4">Ultimate Fashion Generator (Full 90s Editorial Edition)</h1>
+      <h1 className="text-2xl font-semibold mb-4">Model Gen</h1>
       {Object.entries(DATA).map(([k, v]) =>
         typeof v === "object" && !Array.isArray(v) ? (
           <div key={k} className="mb-8">
@@ -244,6 +244,26 @@ export default function UltimateFashionGeneratorExpanded() {
           </div>
         ))}
       </div>
+
+      <div className="mb-6">
+        <h2 className="text-lg font-medium mb-2">Aspect Ratio</h2>
+        <div className="flex flex-wrap gap-2">
+          {["1:1 (Square)", "3:4 (Portrait)", "9:16 (Vertical)", "16:9 (Landscape)"].map((ratio) => (
+            <button
+              key={ratio}
+              onClick={() => setSelected((p) => ({ ...p, aspectRatio: ratio }))}
+              className={`px-4 py-2 rounded-full border text-sm transition ${
+                selected.aspectRatio === ratio
+                  ? "bg-indigo-600 text-white border-indigo-600 shadow"
+                  : "bg-white/70 dark:bg-zinc-800/70 text-zinc-800 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+              }`}
+            >
+              {ratio}
+            </button>
+          ))}
+        </div>
+      </div>
+
 
       <button onClick={handleGenerate} disabled={loading} className={`w-full px-5 py-3 rounded-xl font-semibold mt-4 ${loading ? "bg-indigo-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700 text-white"}`}>
         {loading ? "Generating..." : "Generate Image"}

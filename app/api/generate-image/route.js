@@ -7,36 +7,71 @@ export async function POST(req) {
     const poseRef = formData.get("poseRef");
     const wardrobeRef = formData.get("wardrobeRef");
 
-    // --- Describe how the model should use uploaded references ---
+    // Realism standards
+    const realismStandards = `
+You are a professional AI image-generation assistant that produces photorealistic fashion and skincare portraits indistinguishable from genuine DSLR or medium-format photography.
+Models must appear attractive, confident, and professional—styled as if for high-end beauty, editorial, or advertising campaigns—while preserving genuine human imperfections and natural optical artifacts.
+
+### Core Rendering Standards
+1. Authenticity — Maintain visible pores, micro blemishes, natural tone variation, and light scatter through skin.
+2. Natural Beauty — Balanced symmetry, confident posture, expressive eyes, natural charisma.
+3. Skin Texture — Preserve lifelike pores and stray hairs; never over-smooth.
+4. Lighting Realism — Studio realism with mild imperfections (reflections, uneven shadows).
+5. Eye Realism — Focused, expressive eyes with natural emotion.
+6. Hair — Include realistic edge softness and fine flyaways.
+7. Wardrobe — Real folds and draping, not painted textures.
+8. Camera — Depth of field, sensor noise, bokeh, and mild compression artifacts.
+9. Overall Aesthetic — Healthy, luminous beauty consistent with professional editorial photography.
+    `;
+
+    // Describe how to use reference images
     let visualGuidance = "";
     if (poseRef && wardrobeRef) {
       visualGuidance =
-        "Use the pose and body position from the uploaded Pose Reference image and replicate the overall outfit, texture, and silhouette style from the Wardrobe Reference image.";
+        "Use the pose and composition from the Pose Reference image and the wardrobe, fabric texture, and silhouette style from the Wardrobe Reference image.";
     } else if (poseRef) {
       visualGuidance =
-        "Use the pose, body posture, and composition cues from the uploaded Pose Reference image as the basis for the model's stance.";
+        "Use the pose and body composition cues from the Pose Reference image as guidance.";
     } else if (wardrobeRef) {
       visualGuidance =
-        "Incorporate the outfit, fabric style, and color tone from the uploaded Wardrobe Reference image.";
+        "Use the clothing silhouette, texture, and tone from the Wardrobe Reference image.";
     }
 
-    // --- Build the core image generation prompt ---
+    // --- Handle Aspect Ratio selection ---
+    let size = "1024x1024";
+    switch (payload.aspectRatio) {
+      case "3:4 (Portrait)":
+        size = "1024x1365";
+        break;
+      case "9:16 (Vertical)":
+        size = "1024x1820";
+        break;
+      case "16:9 (Landscape)":
+        size = "1365x768";
+        break;
+      default:
+        size = "1024x1024";
+    }
+
+    // --- Final Prompt ---
     const prompt = `
-      Create a hyper-realistic fashion editorial photograph.
-      ${visualGuidance}
-      Model: ${payload.models || "female model"}.
-      Ethnicity: ${payload.ethnicities || "any"}.
-      Age group: ${payload.ageGroups || "25-30"}.
-      Makeup: ${payload.makeupFace || "natural skin-like"} with ${payload.makeupEyes || "defined eyes"} and ${payload.makeupLips || "neutral lips"}.
-      Hair: ${payload.hairStyles || "loose waves"} (${payload.hair.colors || "medium brown"}), ${payload.hairFinish || "natural texture"}.
-      Wardrobe: ${payload.wardrobeStyles || "minimalist 90s"}, ${payload.wardrobeTextures || "satin"}.
-      Lighting: ${payload.lightingMood || "studio softbox"}, tone: ${payload.toneStyle || "cinematic"}.
-      Camera: ${payload.cameras || "Canon EOS R5"} with ${payload.lenses || "85mm f/1.2"} at ${payload.fStops || "f/2"}.
-      Ensure natural facial realism, consistent pores and freckles, DSLR sensor grain, and studio lighting accuracy.
+${realismStandards}
+
+Generate an ultra-realistic 90s fashion editorial photograph.
+${visualGuidance}
+Model: ${payload.models || "female model"} (${payload.ethnicities || "any"} ethnicity, age ${payload.ageGroups || "25-30"}).
+Makeup: ${payload.makeupFace || "natural"} with ${payload.makeupEyes || "defined eyes"} and ${payload.makeupLips || "neutral lips"}.
+Hair: ${payload.hairStyles || "loose waves"} in ${payload.hair?.colors || "medium brown"}.
+Wardrobe: ${payload.wardrobeStyles || "minimalist 90s"}, ${payload.wardrobeTextures || "satin texture"}.
+Lighting: ${payload.lightingMood || "studio"} — ${payload.toneStyle || "cinematic tone"}.
+Camera: ${payload.cameras || "Canon EOS R5"} with ${payload.lenses || "85mm f/1.2"} at ${payload.fStops || "f/2"}.
+
+Preserve micro pores, soft edges, stray hairs, expressive eyes, and genuine optical depth.
+Reflect wardrobe cues without duplicating the source images.
     `;
 
-    // --- Build the OpenAI API request ---
-    const response = await fetch("https://api.openai.com/v1/images/generations", {
+    // --- Call OpenAI ---
+    const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -45,36 +80,22 @@ export async function POST(req) {
       body: JSON.stringify({
         model: "gpt-image-1",
         prompt,
-        size: "1024x1024",
+        size,
       }),
     });
 
-    const data = await response.json();
-    console.log("OpenAI response:", data);
+    const data = await res.json();
+    const imageUrl = data.data?.[0]?.url;
 
-    if (!response.ok) {
-      // surface provider error details
-      const message = data?.error?.message || JSON.stringify(data);
-      console.error("OpenAI images API error:", message);
-      return NextResponse.json({ error: message }, { status: response.status || 502 });
+    if (!imageUrl) {
+      console.error("OpenAI API response:", data);
+      return NextResponse.json(
+        { error: "Image generation failed", details: data },
+        { status: 500 }
+      );
     }
 
-    // Provider may return either a remote URL or base64 content in various keys
-    const entry = data.data?.[0] || {};
-    const imageUrl = entry.url;
-    const b64 = entry.b64_json || entry.b64json || entry.b64;
-
-    if (imageUrl) {
-      return NextResponse.json({ imageUrl });
-    }
-
-    if (b64) {
-      const imageBase64 = `data:image/png;base64,${b64}`;
-      return NextResponse.json({ imageBase64 });
-    }
-
-    // Unexpected response shape
-    return NextResponse.json({ error: "Unexpected image response", details: data }, { status: 502 });
+    return NextResponse.json({ imageUrl });
   } catch (err) {
     console.error("Error generating image:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
