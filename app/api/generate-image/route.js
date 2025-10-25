@@ -85,17 +85,32 @@ Reflect wardrobe cues without duplicating the source images.
     });
 
     const data = await res.json();
-    const imageUrl = data.data?.[0]?.url;
+    console.log("OpenAI API response:", data);
 
-    if (!imageUrl) {
-      console.error("OpenAI API response:", data);
-      return NextResponse.json(
-        { error: "Image generation failed", details: data },
-        { status: 500 }
-      );
+    // Surface provider errors
+    if (!res.ok) {
+      const message = data?.error?.message || JSON.stringify(data);
+      console.error("OpenAI images API error:", message);
+      return NextResponse.json({ error: message }, { status: res.status || 502 });
     }
 
-    return NextResponse.json({ imageUrl });
+    // Support both remote URL and base64 payloads
+    const entry = data.data?.[0] || {};
+    const imageUrl = entry.url;
+    const b64 = entry.b64_json || entry.b64json || entry.b64;
+
+    if (imageUrl) {
+      return NextResponse.json({ imageUrl });
+    }
+
+    if (b64) {
+      const imageBase64 = `data:image/png;base64,${b64}`;
+      return NextResponse.json({ imageBase64 });
+    }
+
+    // Unexpected response shape
+    console.error("Unexpected OpenAI response shape:", data);
+    return NextResponse.json({ error: "Image generation failed", details: data }, { status: 502 });
   } catch (err) {
     console.error("Error generating image:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
