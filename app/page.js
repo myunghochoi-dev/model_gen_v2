@@ -93,6 +93,7 @@ export default function UltimateFashionGeneratorExpanded() {
   const [posePreview, setPosePreview] = useState(null);
   const [wardrobePreview, setWardrobePreview] = useState(null);
   const [generatedImage, setGeneratedImage] = useState(null);
+  const [generatedError, setGeneratedError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [bgColor, setBgColor] = useState("#ffffff");
 
@@ -118,6 +119,7 @@ export default function UltimateFashionGeneratorExpanded() {
 
   const handleGenerate = async () => {
     setLoading(true);
+    setGeneratedError(null);
     const formData = new FormData();
     formData.append("payload", JSON.stringify({ ...selected, bgColor, realismEnhancements }));
     if (poseRef) formData.append("poseRef", poseRef);
@@ -125,9 +127,26 @@ export default function UltimateFashionGeneratorExpanded() {
     try {
       const res = await fetch("/api/generate-image", { method: "POST", body: formData });
       const out = await res.json();
-      setGeneratedImage(out.imageUrl);
+
+      if (!res.ok) {
+        console.error("Generate API error:", out);
+        setGeneratedError(out.error || "Generation failed");
+        setGeneratedImage(null);
+        return;
+      }
+
+      // Support either a remote URL or a data URL (base64)
+      const img = out.imageUrl || out.imageBase64 || out.image;
+      if (!img) {
+        setGeneratedError("No image returned from generation API");
+        setGeneratedImage(null);
+      } else {
+        setGeneratedImage(img);
+        setGeneratedError(null);
+      }
     } catch (err) {
       console.error(err);
+      setGeneratedError(err?.message || String(err));
     } finally {
       setLoading(false);
     }
@@ -193,6 +212,12 @@ export default function UltimateFashionGeneratorExpanded() {
       <button onClick={handleGenerate} disabled={loading} className={`w-full px-5 py-3 rounded-xl font-semibold mt-4 ${loading ? "bg-indigo-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700 text-white"}`}>
         {loading ? "Generating..." : "Generate Image"}
       </button>
+
+      {generatedError && (
+        <div className="mt-4 p-4 rounded-lg bg-red-50 text-red-700 border border-red-100">
+          <strong>Error:</strong> {generatedError}
+        </div>
+      )}
 
       {generatedImage && (
         <div className="mt-6 text-center">

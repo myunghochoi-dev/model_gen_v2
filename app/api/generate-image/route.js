@@ -1,31 +1,14 @@
 import { NextResponse } from "next/server";
 
-// This route receives the FormData payload from your generator UI
 export async function POST(req) {
   try {
-    // Parse the incoming form data
     const formData = await req.formData();
     const payload = JSON.parse(formData.get("payload") || "{}");
 
-    // (Optional) Log it for debugging — you'll see this in Vercel's logs
-    console.log("Image generation payload:", payload);
-
-    // --------------------------------------------
-    // 1️⃣ Get any uploaded images (poseRef / wardrobeRef)
-    // --------------------------------------------
-    const poseRef = formData.get("poseRef");
-    const wardrobeRef = formData.get("wardrobeRef");
-
-    // --------------------------------------------
-    // 2️⃣ Here’s where the actual image generation happens
-    // --------------------------------------------
-    // Example: using OpenAI’s Images API (DALL·E 3)
-    // ⚠️ You’ll need to add your OpenAI API key in Vercel settings (see Step 3 below)
-
     const prompt = `
-      Create a highly realistic fashion editorial photograph based on the following details:
+      Create a fashion editorial photo with these details:
       ${JSON.stringify(payload, null, 2)}
-      Include natural skin texture, realistic lighting, lens accuracy, and studio background.
+      Make it realistic with DSLR texture and lighting.
     `;
 
     const response = await fetch("https://api.openai.com/v1/images/generations", {
@@ -42,14 +25,32 @@ export async function POST(req) {
     });
 
     const data = await response.json();
-    const imageUrl = data.data?.[0]?.url;
+    console.log("OpenAI API response:", data);
 
-    // --------------------------------------------
-    // 3️⃣ Return the generated image URL
-    // --------------------------------------------
-    return NextResponse.json({ imageUrl });
+    if (!response.ok) {
+      // surface provider error
+      console.error("OpenAI images API error:", data);
+      const message = data.error?.message || JSON.stringify(data);
+      return NextResponse.json({ error: message }, { status: response.status || 500 });
+    }
+
+    // The provider might return either a remote URL or base64 content
+    const entry = data.data?.[0] || {};
+    const imageUrl = entry.url;
+    const b64 = entry.b64_json || entry.b64json || entry.b64;
+
+    if (imageUrl) {
+      return NextResponse.json({ imageUrl });
+    }
+
+    if (b64) {
+      const imageBase64 = `data:image/png;base64,${b64}`;
+      return NextResponse.json({ imageBase64 });
+    }
+
+    return NextResponse.json({ error: "No image returned", details: data }, { status: 502 });
   } catch (err) {
-    console.error("Error generating image:", err);
-    return NextResponse.json({ error: "Image generation failed" }, { status: 500 });
+    console.error("Error in /api/generate-image:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
