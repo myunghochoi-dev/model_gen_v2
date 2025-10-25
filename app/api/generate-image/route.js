@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 
 export async function POST(req) {
   try {
@@ -106,18 +107,56 @@ Reflect wardrobe cues without duplicating the source images.
     const imageUrl = entry.url;
     const b64 = entry.b64_json || entry.b64json || entry.b64;
 
+    // Determine desired output dimensions for exact aspect ratio
+    // These are the pixel sizes we'll crop/resize to.
+    const aspect = payload.aspectRatio || "1:1 (Square)";
+    const targetMap = {
+      "1:1 (Square)": { width: 1024, height: 1024 },
+      "3:4 (Portrait)": { width: 1024, height: 1365 },
+      // exact 9:16 tall dimensions
+      "9:16 (Vertical)": { width: 1024, height: 1820 },
+      "16:9 (Landscape)": { width: 1536, height: 864 }
+    };
+    const target = targetMap[aspect] || { width: 1024, height: 1024 };
+
+    // Helper: fetch remote URL to buffer
+    const fetchToBuffer = async (url) => {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`Failed fetching image: ${r.status}`);
+      return Buffer.from(await r.arrayBuffer());
+    };
+
+    let inputBuffer;
     if (imageUrl) {
-      return NextResponse.json({ imageUrl });
+      try {
+        inputBuffer = await fetchToBuffer(imageUrl);
+      } catch (err) {
+        console.error("Failed to fetch generated image URL:", err);
+        return NextResponse.json({ error: "Failed to fetch generated image" }, { status: 502 });
+      }
+    } else if (b64) {
+      inputBuffer = Buffer.from(b64, "base64");
+    } else {
+      console.error("Unexpected OpenAI response shape:", data);
+      return NextResponse.json({ error: "Image generation failed", details: data }, { status: 502 });
     }
 
-    if (b64) {
-      const imageBase64 = `data:image/png;base64,${b64}`;
+    try {
+      // Use sharp to crop/resize to exact target aspect ratio & dimensions
+      const outBuffer = await sharp(inputBuffer)
+        .resize(target.width, target.height, { fit: "cover", position: "centre" })
+        .png()
+        .toBuffer();
+
+      const outB64 = outBuffer.toString("base64");
+      const imageBase64 = `data:image/png;base64,${outB64}`;
       return NextResponse.json({ imageBase64 });
+    } catch (err) {
+      console.error("Image post-processing failed:", err);
+      // fallback: return original url if available
+      if (imageUrl) return NextResponse.json({ imageUrl });
+      return NextResponse.json({ error: "Image processing failed" }, { status: 500 });
     }
-
-    // Unexpected response shape
-    console.error("Unexpected OpenAI response shape:", data);
-    return NextResponse.json({ error: "Image generation failed", details: data }, { status: 502 });
   } catch (err) {
     console.error("Error generating image:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
