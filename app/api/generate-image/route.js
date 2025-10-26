@@ -46,10 +46,23 @@ export async function POST(req) {
 
   const streakText = streakBits.length ? ` with ${streakBits.join(", ")}` : "";
 
+  // Extra enforcement for light colors that often drift to brunette
+  const blondeEnforcement = chosenColor === "Blonde" || chosenColor === "Platinum"
+    ? `
+CRITICAL COLOR CONSTRAINTS (hair):
+- Perceived luminance of hair should be high: sRGB Y ≈ 70–92 for >80% of visible strands.
+- Avoid brunette/brown/espresso/chestnut hues entirely; zero tolerance for dark brown cast.
+- Keep hue in blonde range: approximate Lab targets L* 75–93, a* −5..+8, b* +10..+30.
+- Root shadow allowed but limited: neutral beige shadow only 5–10% coverage, not dark brown.
+- Eyebrows slightly lighter than hair, not dark; eyelashes not heavy black.
+    `
+    : "";
+
   const hairDescription = `
 Target hair color: ${chosenColor} (${colorSpec.desc}), approx hex ${colorSpec.hex}. Maintain hue in highlights, midtones, and shadows; do not shift toward other hues. ${colorSpec.negatives}.
+${blondeEnforcement}
 Style: ${payload.hairStyles || "loose waves"} with ${payload.hairFinish || "natural texture"}${streakText}. Include realistic flyaways and ${payload.hairMotion || "subtle movement"}.
-Hard requirement: hair must read clearly as ${chosenColor} to a viewer; avoid brown cast from exposure or white‑balance.
+Hard requirement: hair must read clearly as ${chosenColor} to a viewer in any lighting; do not let exposure or white‑balance introduce a brown cast.
   `;
 
     /* -------- Realism & imperfection directives -------- */
@@ -118,6 +131,7 @@ The resulting image must maintain visible optical imperfections and realistic ph
       model: "gpt-image-1",
       prompt,
       size,
+      quality: "high",
     };
 
     // NOTE: uploading binary reference images directly to the Images Generations
