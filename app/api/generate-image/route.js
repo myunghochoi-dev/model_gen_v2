@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp"; // npm install sharp
 
+// Ensure this runs on the Node.js runtime (not Edge) since we use sharp and Buffer
+export const runtime = "nodejs";
+
 export async function POST(req) {
   try {
+    // Validate required env
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        { error: "Missing OPENAI_API_KEY on server" },
+        { status: 500 }
+      );
+    }
     const formData = await req.formData();
     const payload = JSON.parse(formData.get("payload") || "{}");
     const poseRef = formData.get("poseRef");
@@ -45,14 +55,14 @@ Model must appear attractive, confident, and naturally human with visible textur
         "Incorporate wardrobe silhouette, color, and fabric cues from the Wardrobe Reference image.";
 
     /* -------- Aspect Ratio Mapping (map to provider-supported sizes) -------- */
-    // OpenAI Images API supports: '1024x1024', '1024x1536', '1536x1024', and 'auto'.
+    // OpenAI Images API supports: '1024x1024', '1024x1536', '1536x1024'.
     let size = "1024x1024";
     switch (payload.aspectRatio) {
       case "3:4 (Portrait)":
         size = "1024x1536"; // portrait
         break;
       case "9:16 (Vertical)":
-        size = "auto"; // let provider choose a tall image, we will crop/resize server-side
+        size = "1024x1536"; // use supported tall size
         break;
       case "16:9 (Landscape)":
         size = "1536x1024"; // wider landscape
@@ -98,13 +108,32 @@ The resulting image must maintain visible optical imperfections and realistic ph
       body: JSON.stringify(reqBody),
     });
 
-    const data = await res.json();
+    // If OpenAI returns a non-2xx, surface the error details
+    let data;
+    try {
+      data = await res.json();
+    } catch (_) {
+      // Non-JSON response
+      const txt = await res.text().catch(() => "");
+      return NextResponse.json(
+        { error: `Upstream error ${res.status}`, details: txt?.slice(0, 1000) },
+        { status: 500 }
+      );
+    }
+
+    if (!res.ok) {
+      const message = data?.error?.message || "Image generation failed";
+      return NextResponse.json(
+        { error: message, details: process.env.DEBUG_IMAGE === "true" ? data : undefined },
+        { status: 500 }
+      );
+    }
     const entry = data.data?.[0] || {};
     const imageUrl = entry.url;
     const b64 = entry.b64_json || entry.b64json || entry.b64;
 
     if (!imageUrl && !b64) {
-      console.error("OpenAI response:", data);
+      console.error("OpenAI response missing image:", data);
       const details = process.env.DEBUG_IMAGE === "true" ? data : undefined;
       return NextResponse.json({ error: "No image returned", details }, { status: 500 });
     }
@@ -154,6 +183,6 @@ The resulting image must maintain visible optical imperfections and realistic ph
     return NextResponse.json({ imageUrl: realismURL });
   } catch (err) {
     console.error("Error generating image:", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: err?.message || "Server error" }, { status: 500 });
   }
 }
