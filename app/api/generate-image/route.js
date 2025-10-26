@@ -38,17 +38,26 @@ export async function POST(req) {
         refs: ["Emma Watson", "Kate Middleton brown hair"]
       },
       "Blonde": { 
-        desc: "bright California beach blonde", 
+        desc: "Margot Robbie Barbie movie blonde", 
         hex: "#F1D877",
         lightHex: "#FBE9B7", 
         darkHex: "#E6C98F",
-        negatives: "CRITICAL: NO BROWN WHATSOEVER. This is a hard block on ANY brown tones. The hair must be unmistakably BLONDE, like Margot Robbie in Barbie (2023) or Taylor Swift's signature golden blonde. Not dirty blonde, not dark blonde, not honey blonde - pure golden blonde only. Every single strand must be definitively blonde. This is the most important requirement - the final image MUST show a blonde model, no exceptions.",
-        refs: ["Margot Robbie as Barbie 2023", "Taylor Swift Midnights era blonde", "California beach blonde"],
+        negatives: `ABSOLUTELY NO BROWN ALLOWED - CRITICAL PRIORITY:
+1. The hair must be PURE BLONDE like Margot Robbie in Barbie (2023)
+2. Not a single brown tone anywhere in the hair
+3. Not dirty blonde, dark blonde, or honey blonde
+4. No brunette undertones whatsoever
+5. Zero brown pigments - this is non-negotiable
+6. The image must read as obviously and unmistakably blonde
+7. Treat this as a mathematical requirement: if hair_color != blonde, reject_image()`,
+        refs: ["Margot Robbie Barbie 2023 platinum blonde", "Taylor Swift folklore era blonde", "Pure golden blonde reference"],
         forceLight: true,
         requiresNeutralLighting: true,
         colorPriority: "absolute",
-        lightingNotes: "Use high-key beauty lighting to ensure blonde visibility",
-        technicalNotes: "Expose for the hair, ensure golden blonde reading in final image"
+        lightingNotes: "Preserve dramatic lighting while ensuring hair reads as blonde",
+        technicalNotes: "Dual exposure: bright for hair, dramatic for rest",
+        visualRefs: ["Barbie 2023 movie stills", "High fashion blonde model portraits"],
+        emphasizeColor: true
       },
       "Platinum": { 
         desc: "cool platinum white-blonde", hex: "#F3F3ED", 
@@ -152,44 +161,62 @@ Model must appear attractive, confident, and naturally human with visible textur
     }
 
     /* -------- Final Prompt -------- */
-    // For blonde/platinum, enforce optimal lighting and setup for accurate color
+    // Strict lighting control for blonde hair accuracy
     if (colorSpec.forceLight === true || colorSpec.requiresNeutralLighting === true) {
-      // Override lighting for maximum blonde visibility
-      payload.lightingMood = "High-key beauty lighting with hair focus";
-      payload.toneStyle = "Clean daylight white balance";
-      
-      // Modify editorial style to prioritize hair color accuracy
-      if (payload.editorialStyle) {
-        const originalStyle = payload.editorialStyle;
-        payload.editorialStyle = `Blonde hair specialist photo (${originalStyle} composition)`;
-      }
+      const originalLighting = payload.lightingMood;
+      const originalStyle = payload.editorialStyle;
 
-      // Add specific technical settings for blonde visibility
-      payload.lensFilters = "Slight diffusion for hair highlight bloom";
-      
-      // Ensure background supports blonde visibility
-      if (payload.bgColor === "#000000") {
-        payload.bgColor = "#1a1a1a"; // Slightly lighter for better hair separation
-      }
+      // Force blonde-optimized lighting while preserving artistic intent
+      payload.lightingMood = `${originalLighting} with additional blonde-specific lighting:
+- Main light: High-powered key light positioned to illuminate hair
+- Hair light: Strong backlight to create blonde highlight rim
+- Fill light: Soft fill to prevent shadows from darkening hair
+- Overall: Maintain bright exposure on hair while keeping dramatic contrast elsewhere`;
 
-      // Override any lighting that might darken hair
-      if (payload.lightingMood?.includes("rim") || 
-          payload.lightingMood?.includes("silhouette") || 
-          payload.lightingMood?.includes("low key")) {
-        payload.lightingMood = "High-key beauty lighting with hair focus";
+      // Ensure color accuracy in editorial style
+      payload.editorialStyle = `Blonde hair focus (${originalStyle}) - Reference: Margot Robbie Barbie (2023)`;
+      
+      // Force technical settings for blonde visibility
+      payload.toneStyle = "High-key blonde-optimized processing";
+      payload.lensFilters = "Hair highlight enhancing diffusion";
+      
+      // Special handling for dramatic lighting setups
+      if (originalLighting?.includes("overhead") || 
+          originalLighting?.includes("spot") || 
+          originalLighting?.includes("rim") || 
+          originalLighting?.includes("silhouette")) {
+        payload.lightingMood += `
+CRITICAL: Maintain blonde hair visibility:
+- Add front fill light to prevent hair shadowing
+- Ensure hair reads as clearly blonde
+- Preserve dramatic lighting on face/body while keeping hair bright`;
       }
     }
 
     // Special color preface for blonde/platinum to force correct interpretation
     const colorPreface = colorSpec.forceLight
-      ? `MOST CRITICAL REQUIREMENT - HAIR COLOR:
-This image MUST show a BLONDE model with bright, light-colored hair matching these exact specifications:
+      ? `ABSOLUTE MANDATORY REQUIREMENT - CREATE A BLONDE MODEL:
+This is a hard requirement to generate a BLONDE model. The final image MUST show definitively BLONDE HAIR, similar to these exact references:
 
-1. PRIMARY COLOR SPEC:
-- Base color: Light golden blonde (#F1D877 / RGB 241,216,119)
-- Highlights: Bright warm blonde (#FBE9B7 / RGB 251,233,183)
-- Lowlights: Light golden (#E6C98F / RGB 230,201,143)
-- NO BROWN TONES ALLOWED AT ALL
+PRECISE COLOR VALUES (MUST MATCH EXACTLY):
+1. Main Hair Color: Bright golden blonde
+   - Hex: #F1D877 (RGB 241,216,119)
+   - Like Margot Robbie's Barbie movie hair
+   
+2. Highlight Color: Light warm blonde
+   - Hex: #FBE9B7 (RGB 251,233,183)
+   - Like Taylor Swift's signature blonde
+   
+3. Lowlight Color: Pale golden
+   - Hex: #E6C98F (RGB 230,201,143)
+   - NO DARKER THAN THIS VALUE
+
+CRITICAL COLOR RULES:
+- Hair must be UNMISTAKABLY BLONDE
+- Exact match to Margot Robbie's Barbie blonde
+- ZERO brown pigments or undertones
+- No dark blonde, honey blonde, or dirty blonde
+- Must read as clearly blonde even in dramatic lighting
 
 2. CELEBRITY COLOR REFERENCE:
 - Match the exact blonde tone of Margot Robbie in Barbie (2023)
