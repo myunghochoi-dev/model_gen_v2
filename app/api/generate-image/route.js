@@ -132,6 +132,7 @@ The resulting image must maintain visible optical imperfections and realistic ph
       prompt,
       size,
       quality: "high",
+      response_format: "b64_json",
     };
 
     // NOTE: uploading binary reference images directly to the Images Generations
@@ -179,13 +180,13 @@ The resulting image must maintain visible optical imperfections and realistic ph
 
     /* -------- Automatic realism noise layer -------- */
     let buffer;
-    if (imageUrl) {
+    if (b64) {
+      // provider returned base64 directly
+      buffer = Buffer.from(b64, "base64");
+    } else if (imageUrl) {
       const imgRes = await fetch(imageUrl);
       if (!imgRes.ok) throw new Error(`Failed fetching generated image URL: ${imgRes.status}`);
       buffer = Buffer.from(await imgRes.arrayBuffer());
-    } else {
-      // provider returned base64 directly
-      buffer = Buffer.from(b64, "base64");
     }
 
     // Get image dimensions to generate a matching noise overlay
