@@ -137,7 +137,7 @@ The resulting image must maintain visible optical imperfections and realistic ph
       model: "gpt-image-1",
       prompt,
       size: providerSize,
-      quality: "standard",
+      quality: "medium",
     };
 
     // NOTE: uploading binary reference images directly to the Images Generations
