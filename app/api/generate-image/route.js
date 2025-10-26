@@ -93,20 +93,26 @@ Model must appear attractive, confident, and naturally human with visible textur
         "Incorporate wardrobe silhouette, color, and fabric cues from the Wardrobe Reference image.";
 
     /* -------- Aspect Ratio Mapping (map to provider-supported sizes) -------- */
-    // OpenAI Images API supports: '1024x1024', '1024x1536', '1536x1024'.
-    let size = "1024x1024";
+    // Provider request size: keep at 1024x1024 for speed/reliability; we will post-process to requested aspect.
+    const providerSize = "1024x1024";
+    let targetW = 1024;
+    let targetH = 1024;
     switch (payload.aspectRatio) {
       case "3:4 (Portrait)":
-        size = "1024x1536"; // portrait
+        targetW = 1024;
+        targetH = 1536; // portrait output
         break;
       case "9:16 (Vertical)":
-        size = "1024x1536"; // use supported tall size
+        targetW = 1024;
+        targetH = 1820; // vertical output
         break;
       case "16:9 (Landscape)":
-        size = "1536x1024"; // wider landscape
+        targetW = 1536;
+        targetH = 1024; // landscape output
         break;
       default:
-        size = "1024x1024";
+        targetW = 1024;
+        targetH = 1024;
     }
 
     /* -------- Final Prompt -------- */
@@ -130,7 +136,7 @@ The resulting image must maintain visible optical imperfections and realistic ph
     const reqBody = {
       model: "gpt-image-1",
       prompt,
-      size,
+      size: providerSize,
       quality: "high",
       response_format: "b64_json",
     };
@@ -190,10 +196,19 @@ The resulting image must maintain visible optical imperfections and realistic ph
     }
 
     // Get image dimensions to generate a matching noise overlay
-    const imgSharp = sharp(buffer);
+    // If target aspect differs, resize/crop to match requested ratio
+    let workBuffer = buffer;
+    if (targetW !== 1024 || targetH !== 1024) {
+      workBuffer = await sharp(buffer)
+        .resize({ width: targetW, height: targetH, fit: "cover", position: "attention" })
+        .jpeg({ quality: 96 })
+        .toBuffer();
+    }
+
+    const imgSharp = sharp(workBuffer);
     const meta = await imgSharp.metadata();
-    const w = meta.width || 1024;
-    const h = meta.height || 1024;
+    const w = meta.width || targetW;
+    const h = meta.height || targetH;
 
     // Create a simple random-grain noise buffer (grayscale) and composite it
     const noiseRaw = Buffer.alloc(w * h);
