@@ -21,22 +21,52 @@ export async function POST(req) {
     const wardrobeRef = formData.get("wardrobeRef");
 
   /* -------- Hair synthesis logic (color-accurate) -------- */
-  const COLOR_SPECS = {
-    "Black": { desc: "true neutral black", hex: "#101010", negatives: "not brown, not brunette, avoid warm brown cast" },
-    "Dark brown": { desc: "deep chocolate brown", hex: "#3B2C23", negatives: "not black, not blond" },
-    "Medium brown": { desc: "neutral medium brown", hex: "#6A4F3D", negatives: "not blond, not black" },
-    "Blonde": { desc: "light golden blonde", hex: "#E6D199", negatives: "not brunette, not brown, not dirty-blonde, not dark" },
-    "Platinum": { desc: "cool platinum white‑blonde", hex: "#F3F3ED", negatives: "not yellow, not golden, not brown" },
-    "Red/Auburn": { desc: "rich copper auburn", hex: "#A6452D", negatives: "not brown, not blond" },
-    "Silver/Grey": { desc: "neutral silver grey", hex: "#C9CED3", negatives: "not yellow, not brown" },
-    "Dyed green": { desc: "vivid emerald green", hex: "#0FA85B", negatives: "not brown, not blond" },
-    "Dyed blue": { desc: "vivid cobalt blue", hex: "#1F5FE0", negatives: "not black, not brown" },
-    "Dyed red": { desc: "vivid crimson red", hex: "#D21F3C", negatives: "not brown" },
-    "Dyed pink": { desc: "vivid magenta pink", hex: "#E1469E", negatives: "not brown" },
-    "Two-tone": { desc: "two‑tone style; keep first color dominant", hex: "#000000", negatives: "avoid unintended brown cast" },
-  };
-
-  const chosenColor = payload.hair?.colors || "Medium brown";
+    const COLOR_SPECS = {
+      "Black": { 
+        desc: "true neutral black", hex: "#101010", 
+        negatives: "not brown, not brunette, avoid warm brown cast",
+        refs: ["Demi Moore", "Kim Kardashian black hair"]
+      },
+      "Dark brown": { 
+        desc: "deep chocolate brown", hex: "#3B2C23", 
+        negatives: "not black, not blond",
+        refs: ["Natalie Portman", "Emma Watson brown hair"]
+      },
+      "Medium brown": { 
+        desc: "neutral medium brown", hex: "#6A4F3D", 
+        negatives: "not blond, not black",
+        refs: ["Emma Watson", "Kate Middleton brown hair"]
+      },
+      "Blonde": { 
+        desc: "bright golden blonde", hex: "#F1D877",
+        lightHex: "#FBE9B7", darkHex: "#D4B560",
+        negatives: "ABSOLUTELY NO BROWN. Not brunette, no brown undertones, not dirty blonde, not dark blonde, zero brown pigment.",
+        refs: ["Margot Robbie blonde", "Taylor Swift blonde", "blonde hair reference"],
+        forceLight: true
+      },
+      "Platinum": { 
+        desc: "cool platinum white-blonde", hex: "#F3F3ED", 
+        lightHex: "#FFFFFF", darkHex: "#E8E8E8",
+        negatives: "not yellow, not golden, absolutely no brown",
+        refs: ["platinum blonde reference", "Lady Gaga platinum hair"],
+        forceLight: true
+      },
+      "Red/Auburn": { 
+        desc: "rich copper auburn", hex: "#A6452D", 
+        negatives: "not brown, not blond",
+        refs: ["Emma Stone red hair", "Jessica Chastain"]
+      },
+      "Silver/Grey": { 
+        desc: "neutral silver grey", hex: "#C9CED3", 
+        negatives: "not yellow, not brown",
+        refs: ["silver hair reference", "grey hair model"]
+      },
+      "Dyed green": { desc: "vivid emerald green", hex: "#0FA85B", negatives: "not brown, not blond" },
+      "Dyed blue": { desc: "vivid cobalt blue", hex: "#1F5FE0", negatives: "not black, not brown" },
+      "Dyed red": { desc: "vivid crimson red", hex: "#D21F3C", negatives: "not brown" },
+      "Dyed pink": { desc: "vivid magenta pink", hex: "#E1469E", negatives: "not brown" },
+      "Two-tone": { desc: "two‑tone style; keep first color dominant", hex: "#000000", negatives: "avoid unintended brown cast" },
+    };  const chosenColor = payload.hair?.colors || "Medium brown";
   const colorSpec = COLOR_SPECS[chosenColor] || COLOR_SPECS["Medium brown"];
 
   const streakBits = [];
@@ -116,20 +146,29 @@ Model must appear attractive, confident, and naturally human with visible textur
     }
 
     /* -------- Final Prompt -------- */
+    // For blonde/platinum, override lighting to ensure color accuracy
+    const needsLightingOverride = colorSpec.forceLight === true;
+    if (needsLightingOverride) {
+      payload.lightingMood = "Studio key light with soft fill";
+      payload.toneStyle = "Clean neutral white balance";
+    }
+
     const prompt = `
 ${realismStandards}
 ${realismEnhancements}
+
+Reference for hair color: Similar to ${colorSpec.refs?.join(", ")}
 
 Model: ${payload.models || "female"} (${payload.ethnicities || "any"}, age ${payload.ageGroups || "25–30"}).
 ${hairDescription}
 
 Makeup: ${payload.makeupFace || "natural"}, eyes: ${payload.makeupEyes || "defined"}, lips: ${payload.makeupLips || "soft"}.
 Wardrobe: ${payload.wardrobeStyles || "minimalist 90s"}, ${payload.wardrobeTextures || "satin / silk sheen"}.
-Lighting: ${payload.lightingMood || "studio"}, tone: ${payload.toneStyle || "cinematic"}.
+Lighting: ${needsLightingOverride ? "Studio key light with soft fill" : (payload.lightingMood || "studio")}, tone: ${needsLightingOverride ? "Clean neutral white balance" : (payload.toneStyle || "cinematic")}.
 Camera: ${payload.cameras || "Canon EOS R5"} with ${payload.lenses || "85mm f/1.2"} at ${payload.fStops || "f/2"}.
 
 ${visualGuidance}
-The resulting image must maintain visible optical imperfections and realistic photographic texture.
+The resulting image must maintain visible optical imperfections and realistic photographic texture, while ensuring exact hair color accuracy.
     `;
 
     /* -------- Prepare API call -------- */
