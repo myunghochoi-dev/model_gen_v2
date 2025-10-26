@@ -137,8 +137,7 @@ The resulting image must maintain visible optical imperfections and realistic ph
       model: "gpt-image-1",
       prompt,
       size: providerSize,
-      quality: "high",
-      response_format: "b64_json",
+      quality: "standard",
     };
 
     // NOTE: uploading binary reference images directly to the Images Generations
@@ -187,7 +186,7 @@ The resulting image must maintain visible optical imperfections and realistic ph
     /* -------- Automatic realism noise layer -------- */
     let buffer;
     if (b64) {
-      // provider returned base64 directly
+      // If provider ever returns base64 directly
       buffer = Buffer.from(b64, "base64");
     } else if (imageUrl) {
       const imgRes = await fetch(imageUrl);
