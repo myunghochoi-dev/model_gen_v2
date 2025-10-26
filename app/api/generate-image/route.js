@@ -20,14 +20,37 @@ export async function POST(req) {
     const poseRef = formData.get("poseRef");
     const wardrobeRef = formData.get("wardrobeRef");
 
-    /* -------- Hair synthesis logic -------- */
-    const hairDescription = `
-Hair should appear as ${payload.hair?.colors || "medium brown"} 
-${payload.hair?.streaks && payload.hair?.streaks !== "None" ? "with " + payload.hair?.streaks.toLowerCase() : ""},
-styled in a ${payload.hairStyles || "loose waves"} look with ${payload.hairFinish || "natural texture"}.
-Include realistic flyaways and ${payload.hairMotion || "subtle movement"}.
-The hair color and streaks must match the exact tone description; do not reinterpret hue.
-    `;
+  /* -------- Hair synthesis logic (color-accurate) -------- */
+  const COLOR_SPECS = {
+    "Black": { desc: "true neutral black", hex: "#101010", negatives: "not brown, not brunette, avoid warm brown cast" },
+    "Dark brown": { desc: "deep chocolate brown", hex: "#3B2C23", negatives: "not black, not blond" },
+    "Medium brown": { desc: "neutral medium brown", hex: "#6A4F3D", negatives: "not blond, not black" },
+    "Blonde": { desc: "light golden blonde", hex: "#E6D199", negatives: "not brunette, not brown, not dirty-blonde, not dark" },
+    "Platinum": { desc: "cool platinum white‑blonde", hex: "#F3F3ED", negatives: "not yellow, not golden, not brown" },
+    "Red/Auburn": { desc: "rich copper auburn", hex: "#A6452D", negatives: "not brown, not blond" },
+    "Silver/Grey": { desc: "neutral silver grey", hex: "#C9CED3", negatives: "not yellow, not brown" },
+    "Dyed green": { desc: "vivid emerald green", hex: "#0FA85B", negatives: "not brown, not blond" },
+    "Dyed blue": { desc: "vivid cobalt blue", hex: "#1F5FE0", negatives: "not black, not brown" },
+    "Dyed red": { desc: "vivid crimson red", hex: "#D21F3C", negatives: "not brown" },
+    "Dyed pink": { desc: "vivid magenta pink", hex: "#E1469E", negatives: "not brown" },
+    "Two-tone": { desc: "two‑tone style; keep first color dominant", hex: "#000000", negatives: "avoid unintended brown cast" },
+  };
+
+  const chosenColor = payload.hair?.colors || "Medium brown";
+  const colorSpec = COLOR_SPECS[chosenColor] || COLOR_SPECS["Medium brown"];
+
+  const streakBits = [];
+  if (payload.hair?.streaks && payload.hair?.streaks !== "None") streakBits.push(payload.hair.streaks.toLowerCase());
+  if (payload.hair?.streakDensity) streakBits.push(`${payload.hair.streakDensity.toLowerCase()} density`);
+  if (payload.hair?.streakPlacement) streakBits.push(`placement at ${payload.hair.streakPlacement.toLowerCase()}`);
+
+  const streakText = streakBits.length ? ` with ${streakBits.join(", ")}` : "";
+
+  const hairDescription = `
+Target hair color: ${chosenColor} (${colorSpec.desc}), approx hex ${colorSpec.hex}. Maintain hue in highlights, midtones, and shadows; do not shift toward other hues. ${colorSpec.negatives}.
+Style: ${payload.hairStyles || "loose waves"} with ${payload.hairFinish || "natural texture"}${streakText}. Include realistic flyaways and ${payload.hairMotion || "subtle movement"}.
+Hard requirement: hair must read clearly as ${chosenColor} to a viewer; avoid brown cast from exposure or white‑balance.
+  `;
 
     /* -------- Realism & imperfection directives -------- */
     const realismEnhancements = `
