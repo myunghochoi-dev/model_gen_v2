@@ -38,11 +38,15 @@ export async function POST(req) {
         refs: ["Emma Watson", "Kate Middleton brown hair"]
       },
       "Blonde": { 
-        desc: "bright golden blonde", hex: "#F1D877",
-        lightHex: "#FBE9B7", darkHex: "#D4B560",
-        negatives: "ABSOLUTELY NO BROWN. Not brunette, no brown undertones, not dirty blonde, not dark blonde, zero brown pigment.",
-        refs: ["Margot Robbie blonde", "Taylor Swift blonde", "blonde hair reference"],
-        forceLight: true
+        desc: "bright golden blonde like Margot Robbie", 
+        hex: "#F1D877",
+        lightHex: "#FBE9B7", 
+        darkHex: "#E6C98F",  // Lighter dark value to prevent brown
+        negatives: "ABSOLUTELY NO BROWN OR BRUNETTE TONES WHATSOEVER. The hair must be clearly and obviously blonde, like Taylor Swift or Margot Robbie's signature color. Not dirty blonde, not dark blonde, not honey blonde, zero brown pigment. The image MUST read as blonde to any viewer.",
+        refs: ["Margot Robbie signature blonde", "Taylor Swift blonde", "bright golden blonde celebrity"],
+        forceLight: true,
+        requiresNeutralLighting: true,
+        colorPriority: "absolute"
       },
       "Platinum": { 
         desc: "cool platinum white-blonde", hex: "#F3F3ED", 
@@ -146,21 +150,38 @@ Model must appear attractive, confident, and naturally human with visible textur
     }
 
     /* -------- Final Prompt -------- */
-    // For blonde/platinum, override lighting to ensure color accuracy
-    const needsLightingOverride = colorSpec.forceLight === true;
-    if (needsLightingOverride) {
-      payload.lightingMood = "Studio key light with soft fill";
-      payload.toneStyle = "Clean neutral white balance";
+    // For blonde/platinum, enforce strict lighting and exposure settings
+    if (colorSpec.forceLight === true || colorSpec.requiresNeutralLighting === true) {
+      // Override lighting to guarantee color accuracy
+      payload.lightingMood = "Bright studio key light with neutral fill";
+      payload.toneStyle = "Clean studio white balance";
+      
+      // Ensure editorial style works with color requirements
+      if (payload.editorialStyle && !payload.editorialStyle.includes("studio")) {
+        payload.editorialStyle += " (maintaining bright neutral lighting)";
+      }
     }
 
+    // Special color preface for blonde/platinum to force correct interpretation
+    const colorPreface = colorSpec.forceLight
+      ? `CRITICAL APPEARANCE REQUIREMENTS:
+1. This is a ${chosenColor.toUpperCase()} model, like ${colorSpec.refs?.[0] || "a classic blonde"}.
+2. Hair must be light/golden blonde (#F1D877), absolutely no brown tones permitted.
+3. The final image MUST read as blonde to viewers, similar to Margot Robbie or Taylor Swift.
+4. Every hair strand must be blonde - zero tolerance for brunette/brown coloring.
+5. Dominant hair color values: RGB(241,216,119) to RGB(251,233,183).
+`
+      : "";
+
     const prompt = `
+${colorPreface}
 ${realismStandards}
 ${realismEnhancements}
 
-Reference for hair color: Similar to ${colorSpec.refs?.join(", ")}
-
 Model: ${payload.models || "female"} (${payload.ethnicities || "any"}, age ${payload.ageGroups || "25–30"}).
 ${hairDescription}
+
+ABSOLUTE COLOR CONTROL: Hair must match exact reference photos of ${colorSpec.refs?.join(", ")}
 
 Makeup: ${payload.makeupFace || "natural"}, eyes: ${payload.makeupEyes || "defined"}, lips: ${payload.makeupLips || "soft"}.
 Wardrobe: ${payload.wardrobeStyles || "minimalist 90s"}, ${payload.wardrobeTextures || "satin / silk sheen"}.
