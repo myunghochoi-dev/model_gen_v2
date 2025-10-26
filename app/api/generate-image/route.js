@@ -42,11 +42,12 @@ export async function POST(req) {
         hex: "#F1D877",
         lightHex: "#FBE9B7", 
         darkHex: "#E6C98F",  // Lighter dark value to prevent brown
-        negatives: "ABSOLUTELY NO BROWN OR BRUNETTE TONES WHATSOEVER. The hair must be clearly and obviously blonde, like Taylor Swift or Margot Robbie's signature color. Not dirty blonde, not dark blonde, not honey blonde, zero brown pigment. The image MUST read as blonde to any viewer.",
-        refs: ["Margot Robbie signature blonde", "Taylor Swift blonde", "bright golden blonde celebrity"],
+        negatives: "ABSOLUTELY NO BROWN OR BRUNETTE TONES WHATSOEVER. The hair must be clearly and obviously blonde, like Taylor Swift's signature golden blonde or Margot Robbie's platinum blonde in Barbie. Not dirty blonde, not dark blonde, not honey blonde, zero brown pigment. Every strand must read as bright blonde, even in darker lighting conditions. The final image MUST be unmistakably blonde to any viewer.",
+        refs: ["Margot Robbie Barbie movie blonde", "Taylor Swift golden blonde", "bright blonde celebrity reference"],
         forceLight: true,
         requiresNeutralLighting: true,
-        colorPriority: "absolute"
+        colorPriority: "absolute",
+        lightingNotes: "Ensure hair is well-lit and visible even with dark backgrounds"
       },
       "Platinum": { 
         desc: "cool platinum white-blonde", hex: "#F3F3ED", 
@@ -150,15 +151,25 @@ Model must appear attractive, confident, and naturally human with visible textur
     }
 
     /* -------- Final Prompt -------- */
-    // For blonde/platinum, enforce strict lighting and exposure settings
+    // For blonde/platinum, enforce optimal lighting for hair visibility
     if (colorSpec.forceLight === true || colorSpec.requiresNeutralLighting === true) {
-      // Override lighting to guarantee color accuracy
-      payload.lightingMood = "Bright studio key light with neutral fill";
-      payload.toneStyle = "Clean studio white balance";
+      // Override with blonde-optimized lighting setup
+      if (payload.lightingMood?.includes("Silhouette") || payload.lightingMood?.includes("rim light")) {
+        // Replace silhouette/rim lighting with more hair-visible options
+        payload.lightingMood = "Single strobe with spill";
+      }
       
-      // Ensure editorial style works with color requirements
-      if (payload.editorialStyle && !payload.editorialStyle.includes("studio")) {
-        payload.editorialStyle += " (maintaining bright neutral lighting)";
+      // Ensure white balance and tone are optimized for blonde visibility
+      payload.toneStyle = "Clean neutral white balance";
+      
+      // Add lighting guidance to editorial style
+      if (payload.editorialStyle) {
+        payload.editorialStyle += " (with bright hair-focused lighting)";
+      }
+
+      // If dark background, add hair-specific rim light
+      if (payload.bgColor === "#000000") {
+        payload.lightingMood = "Front key light with blonde-enhancing rim light";
       }
     }
 
