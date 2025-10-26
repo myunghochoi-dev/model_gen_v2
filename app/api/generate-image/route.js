@@ -3,6 +3,8 @@ import sharp from "sharp"; // npm install sharp
 
 // Ensure this runs on the Node.js runtime (not Edge) since we use sharp and Buffer
 export const runtime = "nodejs";
+// Allow longer processing time for image generation on Vercel
+export const maxDuration = 60;
 
 export async function POST(req) {
   try {
