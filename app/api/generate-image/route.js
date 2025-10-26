@@ -185,7 +185,7 @@ ABSOLUTE COLOR CONTROL: Hair must match exact reference photos of ${colorSpec.re
 
 Makeup: ${payload.makeupFace || "natural"}, eyes: ${payload.makeupEyes || "defined"}, lips: ${payload.makeupLips || "soft"}.
 Wardrobe: ${payload.wardrobeStyles || "minimalist 90s"}, ${payload.wardrobeTextures || "satin / silk sheen"}.
-Lighting: ${needsLightingOverride ? "Studio key light with soft fill" : (payload.lightingMood || "studio")}, tone: ${needsLightingOverride ? "Clean neutral white balance" : (payload.toneStyle || "cinematic")}.
+Lighting: ${colorSpec.forceLight ? "Bright studio key light with neutral fill" : (payload.lightingMood || "studio")}, tone: ${colorSpec.forceLight ? "Clean studio white balance" : (payload.toneStyle || "cinematic")}.
 Camera: ${payload.cameras || "Canon EOS R5"} with ${payload.lenses || "85mm f/1.2"} at ${payload.fStops || "f/2"}.
 
 ${visualGuidance}
