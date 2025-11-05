@@ -88,6 +88,13 @@ const DATA = {
 
 export default function UltimateFashionGeneratorExpanded() {
   const [selected, setSelected] = useState({});
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
+  const [instructionsText, setInstructionsText] = useState("");
+  const GPT_ASSISTANT_INSTRUCTION = `You are a professional AI image-generation assistant specialized in producing ultra-realistic fashion and skincare portraits that look like genuine DSLR photography.
+
+Your goal: depict attractive, professional-looking models in a tasteful, high-end commercial style — elegant, confident, natural, and emotionally engaging — while preserving the organic imperfections and optical subtleties of real imagery.
+
+Attractiveness should reflect professional modeling standards: balanced facial proportions, expressive eyes, confident posture, clean grooming, and genuine human warmth. Subjects must appear photogenic and campaign-ready for global fashion or skincare brands.`;
   const [poseRef, setPoseRef] = useState(null);
   const [wardrobeRef, setWardrobeRef] = useState(null);
   const [posePreview, setPosePreview] = useState(null);
@@ -152,6 +159,23 @@ export default function UltimateFashionGeneratorExpanded() {
     }
   };
 
+  useEffect(() => {
+    // Fetch the instructions file from public folder and cache it in state
+    let mounted = true;
+    fetch('/Studio_Full_Instructions.txt')
+      .then((r) => r.text())
+      .then((txt) => {
+        if (mounted) setInstructionsText(txt);
+      })
+      .catch((err) => {
+        // ignore - instructions are optional
+        console.warn('Could not load Studio_Full_Instructions.txt', err);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   // --- Progress Bar Element (smooth animated version) ---
   const ProgressBar = ({ loading }) => {
     const [progress, setProgress] = useState(0);
@@ -208,6 +232,23 @@ export default function UltimateFashionGeneratorExpanded() {
     <div className="min-h-screen bg-gradient-to-b from-zinc-50 to-white dark:from-zinc-950 dark:to-zinc-900 text-zinc-900 dark:text-zinc-50 p-6">
       <ProgressBar loading={loading} />
       <h1 className="text-2xl font-semibold mb-4">Model Gen</h1>
+      <div className="mb-4 flex items-center gap-3">
+        <button onClick={() => setInstructionsOpen((s) => !s)} className="px-3 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-sm">
+          {instructionsOpen ? 'Hide Instructions' : 'Show Instructions'}
+        </button>
+        <a href="/Studio_Full_Instructions.txt" target="_blank" rel="noreferrer" className="text-sm text-indigo-600 hover:underline">Open full instructions (raw)</a>
+      </div>
+
+      {instructionsOpen && (
+        <div className="mb-6 p-4 rounded-lg bg-white/80 dark:bg-zinc-900/80 border">
+          <h2 className="font-semibold mb-2">Integrated Studio Instructions</h2>
+          <div className="text-xs mb-3 whitespace-pre-wrap max-h-60 overflow-auto border rounded p-2 bg-zinc-50 dark:bg-zinc-800">
+            {instructionsText || 'Loading full instructions...'}
+          </div>
+          <h3 className="font-medium mb-1">GPT Assistant Instruction (short)</h3>
+          <div className="text-sm whitespace-pre-wrap bg-zinc-100 dark:bg-zinc-800 p-3 rounded">{GPT_ASSISTANT_INSTRUCTION}</div>
+        </div>
+      )}
       {Object.entries(DATA).map(([k, v]) =>
         typeof v === "object" && !Array.isArray(v) ? (
           <div key={k} className="mb-8">
