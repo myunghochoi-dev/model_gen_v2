@@ -16,7 +16,9 @@ export async function POST(req) {
       );
     }
     const formData = await req.formData();
-    const payload = JSON.parse(formData.get("payload") || "{}");
+  const payload = JSON.parse(formData.get("payload") || "{}");
+  // If the client provided assistant-level instructions, use them as a preface
+  const assistantInstruction = payload.assistantInstruction || "";
     const poseRef = formData.get("poseRef");
     const wardrobeRef = formData.get("wardrobeRef");
 
@@ -234,7 +236,7 @@ IMPORTANT: This is not a suggestion - the model MUST have clearly blonde hair.
 `
       : "";
 
-    const prompt = `
+  const prompt = `${assistantInstruction ? assistantInstruction + "\n\n" : ""}
 ${colorPreface}
 ${realismStandards}
 ${realismEnhancements}
@@ -251,7 +253,7 @@ Camera: ${payload.cameras || "Canon EOS R5"} with ${payload.lenses || "85mm f/1.
 
 ${visualGuidance}
 The resulting image must maintain visible optical imperfections and realistic photographic texture, while ensuring exact hair color accuracy.
-    `;
+  `;
 
     /* -------- Prepare API call -------- */
     const reqBody = {

@@ -128,7 +128,8 @@ Attractiveness should reflect professional modeling standards: balanced facial p
     setLoading(true);
     setGeneratedError(null);
     const formData = new FormData();
-    formData.append("payload", JSON.stringify({ ...selected, bgColor, realismEnhancements }));
+    const payloadObj = { ...selected, bgColor, realismEnhancements, assistantInstruction: GPT_ASSISTANT_INSTRUCTION };
+    formData.append("payload", JSON.stringify(payloadObj));
     if (poseRef) formData.append("poseRef", poseRef);
     if (wardrobeRef) formData.append("wardrobeRef", wardrobeRef);
     try {
